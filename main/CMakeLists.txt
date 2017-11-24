@@ -1,9 +1,9 @@
 cmake_minimum_required(VERSION 2.8)
-project(object-detection)
+project(main_object-detection)
 
 # The version number.
-set (object-detection_VERSION_MAJOR 1)
-set (object-detection_VERSION_MINOR 0)
+set (main_object-detection_VERSION_MAJOR 1)
+set (main_object-detection_VERSION_MINOR 0)
 
 # add the binary tree to the search path for include files
 # so that we will find TutorialConfig.h
