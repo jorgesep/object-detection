@@ -1,7 +1,6 @@
 cmake_minimum_required(VERSION 2.8)
 project(opencv_object-detection)
 
-#MESSAGE("OpenCV_SOURCE_DIR:                   ${OpenCV_SOURCE_DIR}")
 #MESSAGE("CMAKE_CURRENT_BINARY_DIR:            ${CMAKE_CURRENT_BINARY_DIR}")
 #MESSAGE("CMAKE_CURRENT_SOURCE_DIR:            ${CMAKE_CURRENT_SOURCE_DIR}")
 #MESSAGE("PROJECT_BINARY_DIR:                  ${PROJECT_BINARY_DIR}")
@@ -11,12 +10,24 @@ project(opencv_object-detection)
 #MESSAGE("opencv_object-detection_BINARY_DIR:  ${opencv_object-detection_BINARY_DIR}")
 #MESSAGE("opencv_object-detection_SOURCE_DIR:  ${opencv_object-detection_SOURCE_DIR}")
 
-
-if(EXISTS "${opencv_object-detection_SOURCE_DIR}/build")
-  if(NOT EXISTS "${opencv_object-detection_SOURCE_DIR}/build/.gitignore")
-    file(WRITE "${opencv_object-detection_SOURCE_DIR}/build/.gitignore" "*\n")
-  endif()
+set(MODELS_DOWNLOAD_PATH "${PROJECT_SOURCE_DIR}/models")
+if(NOT EXISTS "${MODELS_DOWNLOAD_PATH}")
+  file(MAKE_DIRECTORY ${MODELS_DOWNLOAD_PATH})
 endif()
+if(NOT EXISTS "${MODELS_DOWNLOAD_PATH}/.gitignore")
+  file(WRITE "${MODELS_DOWNLOAD_PATH}/.gitignore" "*\n")
+endif()
+
+file (COPY ${PROJECT_SOURCE_DIR}/main/download_models.sh 
+    DESTINATION ${PROJECT_SOURCE_DIR}/models 
+    FILE_PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ)
+
+message("Downloading caffe models ...")
+set(download_cmd "${PROJECT_SOURCE_DIR}/models/download_models.sh")
+message(STATUS "download cmd: ${download_cmd}")
+execute_process(COMMAND ${download_cmd} 
+    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/models
+    )
 
 
 ADD_SUBDIRECTORY(main)
