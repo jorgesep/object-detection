@@ -10,16 +10,20 @@ project(opencv_object-detection)
 #MESSAGE("opencv_object-detection_BINARY_DIR:  ${opencv_object-detection_BINARY_DIR}")
 #MESSAGE("opencv_object-detection_SOURCE_DIR:  ${opencv_object-detection_SOURCE_DIR}")
 
+if(NOT EXISTS "${PROJECT_BINARY_DIR}/.gitignore")
+    file(WRITE "${PROJECT_BINARY_DIR}/.gitignore" "*\n")
+endif()
+
 set(MODELS_DOWNLOAD_PATH "${PROJECT_SOURCE_DIR}/models")
 if(NOT EXISTS "${MODELS_DOWNLOAD_PATH}")
-  file(MAKE_DIRECTORY ${MODELS_DOWNLOAD_PATH})
+    file(MAKE_DIRECTORY ${MODELS_DOWNLOAD_PATH})
 endif()
 
 if(NOT EXISTS "${MODELS_DOWNLOAD_PATH}/.gitignore")
-  file(WRITE "${MODELS_DOWNLOAD_PATH}/.gitignore" "*\n")
+    file(WRITE "${MODELS_DOWNLOAD_PATH}/.gitignore" "*\n")
 endif()
 
-file (COPY ${PROJECT_SOURCE_DIR}/main/download_models.sh 
+file (COPY ${PROJECT_SOURCE_DIR}/src/download_models.sh 
     DESTINATION ${PROJECT_SOURCE_DIR}/models 
     FILE_PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ)
 
@@ -32,5 +36,5 @@ if(DOWNLOAD_CAFFE_MODELS)
         )
 endif()
 
-ADD_SUBDIRECTORY(main)
+ADD_SUBDIRECTORY(src)
 
