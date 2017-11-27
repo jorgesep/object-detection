@@ -10,10 +10,13 @@ set (main_object-detection_VERSION_MINOR 0)
 include_directories("${PROJECT_BINARY_DIR}")
 include_directories("${PROJECT_SOURCE_DIR}")
 
-
 set(CMAKE_BINARY_DIR ${CMAKE_SOURCE_DIR}/bin)
 set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR})
 set(LIBRARY_OUTPUT_PATH ${CMAKE_SOURCE_DIR}/lib)
+
+if(NOT EXISTS "${opencv_object-detection_SOURCE_DIR}/bin/.gitignore")
+    file(WRITE "${opencv_object-detection_SOURCE_DIR}/bin/.gitignore" "*\n")
+endif()
 
 
 #delete generated files in make clean
@@ -30,6 +33,16 @@ set(OpenCV_DIR "$ENV{HOME}/local/share/OpenCV"
            CACHE PATH "The path where OpenCVConfig.cmake is placed")
 FIND_PACKAGE( OpenCV REQUIRED )
 
+FIND_PACKAGE( Boost REQUIRED COMPONENTS filesystem system regex program_options )
+INCLUDE_DIRECTORIES( ${Boost_INCLUDE_DIRS} )
+
+ADD_LIBRARY( imreader SHARED imgreader.cpp imgreader.h )
+target_link_libraries( imreader ${OpenCV_LIBS} ${Boost_LIBRARIES} )
+set_property(TARGET imreader PROPERTY LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/../../lib)
+
+ADD_EXECUTABLE( test_imread test_imreader.cpp )
+TARGET_LINK_LIBRARIES( test_imread imreader )
+
 # add the executable
 ADD_EXECUTABLE( dnn_example opencv_dnn.cpp )
 TARGET_LINK_LIBRARIES( dnn_example ${OpenCV_LIBS} )
@@ -40,7 +53,7 @@ TARGET_LINK_LIBRARIES( selective ${OpenCV_LIBS} )
 set_property(TARGET selective PROPERTY RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/../../bin)
 
 ADD_EXECUTABLE( objdet objdet.cpp )
-TARGET_LINK_LIBRARIES( objdet ${OpenCV_LIBS} )
+TARGET_LINK_LIBRARIES( objdet ${OpenCV_LIBS} ${Boost_LIBRARIES} imreader )
 set_property(TARGET objdet PROPERTY RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/../../bin)
 
 
