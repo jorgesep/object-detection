@@ -28,3 +28,8 @@ if [ ! -f bvlc_googlenet.prototxt ]; then
   echo 'Downloading caffe bvlc_googlenet prototxt'
   wget -q -c https://raw.githubusercontent.com/opencv/opencv/master/samples/data/dnn/bvlc_googlenet.prototxt
 fi
+
+if [ ! -f synset_words ]; then
+  echo 'Downloading opencv synset words'
+  wget -q -c https://raw.githubusercontent.com/opencv/opencv/master/samples/data/dnn/synset_words.txt
+fi
