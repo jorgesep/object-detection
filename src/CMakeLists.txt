@@ -5,6 +5,15 @@ project(main_object-detection)
 set (main_object-detection_VERSION_MAJOR 1)
 set (main_object-detection_VERSION_MINOR 0)
 
+SET( CMAKE_C_FLAGS   "-g -Wall -O3" )
+SET( CMAKE_CXX_FLAGS "-Wall -g -O3" )
+if (CMAKE_CXX_COMPILER_ID MATCHES "Intel")
+    # using regular Intel
+    SET( CMAKE_CXX_FLAGS "-O3 -xHost -ipo -no-prec-div -static-intel -parallel -Wall" )
+endif()
+
+
+
 # add the binary tree to the search path for include files
 # so that we will find TutorialConfig.h
 include_directories("${PROJECT_BINARY_DIR}")
@@ -33,7 +42,8 @@ set(OpenCV_DIR "$ENV{HOME}/local/share/OpenCV"
            CACHE PATH "The path where OpenCVConfig.cmake is placed")
 FIND_PACKAGE( OpenCV REQUIRED )
 
-FIND_PACKAGE( Boost REQUIRED COMPONENTS filesystem system regex program_options )
+#FIND_PACKAGE( Boost REQUIRED COMPONENTS filesystem system regex program_options )
+FIND_PACKAGE( Boost REQUIRED COMPONENTS system filesystem program_options regex )
 INCLUDE_DIRECTORIES( ${Boost_INCLUDE_DIRS} )
 
 ADD_LIBRARY( imreader SHARED imgreader.cpp imgreader.h )
@@ -53,7 +63,8 @@ TARGET_LINK_LIBRARIES( selective ${OpenCV_LIBS} )
 set_property(TARGET selective PROPERTY RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/../../bin)
 
 ADD_EXECUTABLE( objdet objdet.cpp )
-TARGET_LINK_LIBRARIES( objdet ${OpenCV_LIBS} ${Boost_LIBRARIES} imreader )
+#TARGET_LINK_LIBRARIES( objdet ${OpenCV_LIBS} ${Boost_LIBRARIES} imreader )
+TARGET_LINK_LIBRARIES( objdet ${OpenCV_LIBS} imreader ${Boost_PROGRAM_OPTIONS_LIBRARY} )
 set_property(TARGET objdet PROPERTY RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/../../bin)
 
 
