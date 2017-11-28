@@ -9,7 +9,9 @@ SET( CMAKE_C_FLAGS   "-g -Wall -O3" )
 SET( CMAKE_CXX_FLAGS "-Wall -g -O3" )
 if (CMAKE_CXX_COMPILER_ID MATCHES "Intel")
     # using regular Intel
-    SET( CMAKE_CXX_FLAGS "-O3 -xHost -ipo -no-prec-div -static-intel -parallel -Wall" )
+    #SET( CMAKE_CXX_FLAGS "-O3 -xHost -ipo -no-prec-div -static-intel -parallel -Wall" )
+    #SET( CMAKE_CXX_FLAGS "-O3 -ipo -axCORE-AVX2 -xSSE4.2")
+    SET( CMAKE_CXX_FLAGS "-O3 -xHost -ipo")
 endif()
 
 
@@ -18,10 +20,11 @@ endif()
 # so that we will find TutorialConfig.h
 include_directories("${PROJECT_BINARY_DIR}")
 include_directories("${PROJECT_SOURCE_DIR}")
+#INCLUDE_DIRECTORIES($ENV{HOME}/local/include)
 
 set(CMAKE_BINARY_DIR ${CMAKE_SOURCE_DIR}/bin)
 set(EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR})
-set(LIBRARY_OUTPUT_PATH ${CMAKE_SOURCE_DIR}/lib)
+#set(LIBRARY_OUTPUT_PATH ${CMAKE_SOURCE_DIR}/lib)
 
 if(NOT EXISTS "${opencv_object-detection_SOURCE_DIR}/bin/.gitignore")
     file(WRITE "${opencv_object-detection_SOURCE_DIR}/bin/.gitignore" "*\n")
@@ -36,6 +39,7 @@ SET_DIRECTORY_PROPERTIES (
      ADDITIONAL_MAKE_CLEAN_FILES ${EXECUTABLE_OUTPUT_PATH}/*
 )
 
+#link_directories($ENV{HOME}/local/lib64)
 
 # openCV library
 set(OpenCV_DIR "$ENV{HOME}/local/share/OpenCV"
@@ -49,6 +53,11 @@ INCLUDE_DIRECTORIES( ${Boost_INCLUDE_DIRS} )
 ADD_LIBRARY( imreader SHARED imgreader.cpp imgreader.h )
 target_link_libraries( imreader ${OpenCV_LIBS} ${Boost_LIBRARIES} )
 set_property(TARGET imreader PROPERTY LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/../../lib)
+
+ADD_LIBRARY( googlenet SHARED googlenet.cpp googlenet.h )
+target_link_libraries( googlenet ${OpenCV_LIBS} )
+set_property(TARGET googlenet PROPERTY LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/../../lib)
+
 
 ADD_EXECUTABLE( test_imread test_imreader.cpp )
 TARGET_LINK_LIBRARIES( test_imread imreader )
@@ -64,7 +73,7 @@ set_property(TARGET selective PROPERTY RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY
 
 ADD_EXECUTABLE( objdet objdet.cpp )
 #TARGET_LINK_LIBRARIES( objdet ${OpenCV_LIBS} ${Boost_LIBRARIES} imreader )
-TARGET_LINK_LIBRARIES( objdet ${OpenCV_LIBS} imreader ${Boost_PROGRAM_OPTIONS_LIBRARY} )
+TARGET_LINK_LIBRARIES( objdet ${OpenCV_LIBS} imreader googlenet ${Boost_PROGRAM_OPTIONS_LIBRARY} )
 set_property(TARGET objdet PROPERTY RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/../../bin)
 
 
