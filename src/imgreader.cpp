@@ -61,8 +61,9 @@ getListFiles(const vector<string> & files) {
      im_files.push_back((bfs::canonical(p).string())); 
    }
  }
-
-#ifdef __debug__ 
+    
+ length = im_files.size();
+#ifndef NDEBUG
  for(vector<string>::const_iterator sit = im_files.begin(); sit!=im_files.end(); sit++)
   cout<< *sit << endl;
 #endif
@@ -98,7 +99,8 @@ getListFiles(string file) {
     throw -1;
   }
 
-#ifdef __debug__
+  length = im_files.size();
+#ifndef NDEBUG
   for(vector<string>::const_iterator sit = im_files.begin(); sit!=im_files.end(); sit++)
     cout<< *sit << endl;
 #endif
@@ -352,7 +354,7 @@ FrameReader
 *FrameReaderFactory :: 
 create_frame_reader(const vector<string> & files) {
 
-#ifdef __debug__
+#ifndef NDEBUG 
   cout << __FUNCTION__ << " Number of Input:" << files.size() << endl;
 #endif
 
