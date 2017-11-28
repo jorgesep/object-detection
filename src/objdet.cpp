@@ -7,8 +7,10 @@
 #include <cstdlib>
 #include <boost/program_options.hpp>
 #include "opencv2/ximgproc/segmentation.hpp"
-
+#include <sys/time.h>
 #include "imgreader.h"
+#include "googlenet.h"
+#include "dnn_algorithmI.h"
 
 
 using namespace std;
@@ -16,6 +18,27 @@ using namespace cv;
 using namespace cv::dnn;
 namespace po = boost::program_options;
 namespace cvseg = cv::ximgproc::segmentation;
+
+double get_current_timestamp()
+{
+  struct timeval curt;
+  gettimeofday(&curt, NULL);
+  return (double)curt.tv_sec + ((double)curt.tv_usec)/1000000.0;
+}
+
+void display_usage()
+{
+  cout << "------------------------------------------------------------" << endl;
+  cout << "Experimenting HPC with image object detection ...           " << endl;
+  cout << "------------------------------------------------------------" << endl;
+  cout << "Output bounding boxes on identified objects.                " << endl;
+  cout << "OpenCV Version : "  << CV_VERSION << endl << endl ;
+  cout << "Example:                                                    " << endl;
+  cout << "./obj_det -i <image|video file>                             " << endl << endl;
+  cout << "------------------------------------------------------------" << endl <<endl;
+}
+
+
 
 /* Find best class for the blob (i. e. class with maximal probability) */
 static void getMaxClass(const Mat &probBlob, int *classId, double *classProb) {
@@ -46,28 +69,67 @@ static std::vector<String> readClassNames(const char *filename = "/home/courses/
   return classNames;
 }
 
+void image_show(InputArray _src, const vector<Rect>& rects){
 
-void display_usage()
-{
-  cout << "------------------------------------------------------------" << endl;
-  cout << "Experimenting HPC with image object detection ...           " << endl;
-  cout << "------------------------------------------------------------" << endl;
-  cout << "Output bounding boxes on identified objects.                " << endl;
-  cout << "OpenCV Version : "  << CV_VERSION << endl << endl ;
-  cout << "Example:                                                    " << endl;
-  cout << "./obj_det -i <image|video file>                             " << endl << endl;
-  cout << "------------------------------------------------------------" << endl <<endl;
-}
+  Mat img = _src.getMat();
 
+  // number of region proposals to show
+  int numShowRects = 100;
+  // increment to increase/decrease total number
+  // of reason proposals to be shown
+  int increment = 50;
+
+  // iterate over all the region proposals
+  for(int i = 0; i < rects.size(); i++) {
+      if (i < numShowRects) {
+          rectangle(img, rects[i], Scalar(0, 255, 0));
+      }
+      else {
+          break;
+      }
+  }
+
+  imshow("OBJDET", img);
+
+  // Stop window
+  char key=0;
+  int delay =25;
+  key = (char)waitKey(delay);
+  if( key == 27 )
+      return ;
+
+  // pause program in with space key
+  if ( key == 32) {
+      bool pause = true;
+      while (pause)
+      {
+          key = (char)waitKey(delay);
+          if (key == 32) pause = false;
+
+          // save frame with return key
+          if (key == 13) {
+              stringstream str;
+              str << "objdet.png" ;
+              imwrite( str.str()  , img  );
+
+              str.str("") ;
+          }
+      }
+  }
+
+
+} 
 
 int main(int argc, char **argv) {
 
-  //Parse console parameters
+  // Parse console input parameters
+  //---------------------------------------------------------------------------
   po::options_description desc("Image Object Detection. v1.0.0");
   desc.add_options()
     ("help,h", "Display this help message")
     ("input-files", po::value< std::vector<std::string> >(), "Input files")
     ("show,s","Show image window")
+    ("path,p","Path to ddn models")
     ("version,v", "Display the version number");
 
   po::positional_options_description p;
@@ -77,59 +139,85 @@ int main(int argc, char **argv) {
   po::notify(vm);
 
   if ( vm.empty() || vm.count("help") ) {
-      //display_usage();
       cout << desc << "\n";
       return 0;
   }
 
-
-
   vector<std::string> files;
   if(vm.count("input-files")){
-//      std::vector<std::string> files = vm["input-files"].as< std::vector<std::string> >();
       files = vm["input-files"].as< vector<string> >();
 
-#ifdef __debug__
+#ifndef NDEBUG 
       for(std::string file : files){
           std::cout << "Input file " << file << std::endl;
       }
       cout << "Input file size:" << files.size() << endl ;
 #endif
-
   }
 
+  string model_path("");
+  if( vm.count("path") ){
+    model_path = vm["compression"].as<string>();
+  }
+
+  // Create Windows
   bool show_window = false;
   if ( vm.count("show") ){
       show_window = true;
-      /// Create Windows
       namedWindow("OBJDET", CV_WINDOW_NORMAL);
       moveWindow("OBJDET",50,50);
   }
 
-  //Verify input name is a video file or directory with image files.
+
+
+  // Creates reader to get every input image to process
+  //---------------------------------------------------------------------------
   FrameReader *input_frame;
   try {
       input_frame = FrameReaderFactory::create_frame_reader(files);
   } catch (...) {
       cout << "Invalid file name "<< endl;
       return 0;
+
+
   }
 
   // create Selective Search Segmentation Object using default parameters
   Ptr<cvseg::SelectiveSearchSegmentation> ss = cvseg::createSelectiveSearchSegmentation();
 
+  // Creates object classifier
+  Ptr<DeepNeuralNetworkAlgorithmI> net = createGoogLeNetClassifier();
+  
+  // Load Caffe model
+  net->LoadModel(model_path);
+
   Mat im;
   int cnt=0;
+  double t1,t2,t3;
+  t1 = get_current_timestamp();
 
   // main loop
   for(;;)
   {
+    // starting to measure loop time
+    t2 = get_current_timestamp();
+
     // get sequence of frames to process.
     im = Scalar::all(0);
     input_frame->getFrame(im);
     if (im.empty()) break;
 
+    // resize image
+    int newHeight = 200;
+    int newWidth = im.cols*newHeight/im.rows;
+    resize(im, im, Size(newWidth, newHeight));
+
+    // get frame counter
     cnt = input_frame->getFrameCounter();
+
+    // speed-up using multithreads
+    setUseOptimized(true);
+    setNumThreads(4);
 
     // set input image on which we will run segmentation
     ss->setBaseImage(im);
@@ -140,60 +228,30 @@ int main(int argc, char **argv) {
     // run selective search segmentation on input image
     vector<Rect> rects;
     ss->process(rects);
-    cout << "Total Number of Region Proposals: " << rects.size() << endl;
+
+    //  image classification using GoogLeNet trained network from Caffe model zoo.
+    Mat Prob;
+    net->Process(im,Prob);
+
+    int classId;
+    double classProb;
+    net->GetClassProb(classId, classProb);
+
+    t3 = get_current_timestamp();
+    cout << cnt  
+         << " Time elapsed:" << (t3-t1)*1000.0 << " " << (t3-t2)*1000.0 << " ms " 
+         << " Number of Region Proposals: " << rects.size() << endl;
 
 
-    // number of region proposals to show
-    int numShowRects = 100;
-    // increment to increase/decrease total number
-    // of reason proposals to be shown
-    int increment = 50;
+    // display gui with images
+    if (show_window) 
+      image_show(im, rects);
 
-
-  if (show_window) {
-      Mat img ;
-      im.convertTo(img, CV_8UC3);
-
-
-      // iterate over all the region proposals
-      for(int i = 0; i < rects.size(); i++) {
-          if (i < numShowRects) {
-              rectangle(img, rects[i], Scalar(0, 255, 0));
-          }
-          else {
-              break;
-          }
-      }
-
-      imshow("OBJDET", img);
-
-      char key  = 0;
-      int delay = 25;
-      key = (char)waitKey(delay);
-      // Exit program
-      if( key == 27 ) break;
-
-
-      if ( key == 32) {
-          bool pause = true;
-          while (pause)
-          {
-              key = (char)waitKey(delay);
-              if (key == 32)
-                  pause = false;
-              // if (key == 112)
-              //     cout << "Number of frame: " << i << "Files: " << fileName(gt_it->second) << " : " << fileName(fg_it->second) << endl;
-          }
-      }
-
-
-  }
-
-  if (cnt >= input_frame->getNFrames())
-    break;
+    //if (cnt >= input_frame->getNFrames())
+    //  break;
 
  
-  }
+ }
 
 
   // if (inputName.empty()) {
