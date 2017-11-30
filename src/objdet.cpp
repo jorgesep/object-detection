@@ -235,12 +235,13 @@ int main(int argc, char **argv) {
 
     int classId;
     double classProb;
-    net->GetClassProb(classId, classProb);
+    net->GetClassProb(&classId, &classProb);
 
     t3 = get_current_timestamp();
     cout << cnt  
          << " Time elapsed:" << (t3-t1)*1000.0 << " " << (t3-t2)*1000.0 << " ms " 
-         << " Number of Region Proposals: " << rects.size() << endl;
+         << " Number of Region Proposals: " << rects.size() 
+         << " classId: " << classId << " classProb: " << classProb << endl;
 
 
     // display gui with images
