@@ -19,7 +19,7 @@ static void getMaxClass(const Mat &probBlob, int *classId, double *classProb)
 }
 
 
-static std::vector<String> readClassNames(const char *filename = "/home/courses/student48/project/dataset/dnn/synset_words.txt")
+static std::vector<String> readClassNames(const char *filename = "../models/synset_words.txt")
 {
     std::vector<String> classNames;
     std::ifstream fp(filename);
@@ -44,9 +44,9 @@ static std::vector<String> readClassNames(const char *filename = "/home/courses/
 int main(int argc, char **argv)
 {
     CV_TRACE_FUNCTION();
-    String modelTxt = "/home/courses/student48/project/dataset/dnn/bvlc_googlenet.prototxt";
-    String modelBin = "/home/courses/student48/project/dataset/dnn/bvlc_googlenet.caffemodel";
-    String imageFile = (argc > 1) ? argv[1] : "/home/courses/student48/project/dataset/dnn/space_shuttle.jpg";
+    String modelTxt = "../models/bvlc_googlenet.prototxt";
+    String modelBin = "../models/bvlc_googlenet.caffemodel";
+    String imageFile = (argc > 1) ? argv[1] : "../dataset/horseback_riding.jpg";
     Net net;
     try {
         net = dnn::readNetFromCaffe(modelTxt, modelBin);
@@ -69,9 +69,22 @@ int main(int argc, char **argv)
         std::cerr << "Can't read image from the file: " << imageFile << std::endl;
         exit(-1);
     }
+
+
     //GoogLeNet accepts only 224x224 BGR-images
     Mat inputBlob = blobFromImage(img, 1.0f, Size(224, 224),
                                   Scalar(104, 117, 123), false);   //Convert Mat to batch of images
+
+    std::cout << "Img size       :"<< img.size() << " RowsxCols=[" << img.rows << ":" << img.cols << "] " 
+              << " type:" << img.type() << " channels:" << img.channels() 
+              << " depth:" << img.depth() << " dims:" << img.dims << std::endl; 
+    std::cout << "Input blob size:"<< inputBlob.size()<< " RowsxCols=[" << inputBlob.rows << ":" << inputBlob.cols << "] " 
+              << " type:" << inputBlob.type() << " channels:" << inputBlob.channels() 
+              << " depth:" << inputBlob.depth() << " dims:" << inputBlob.dims << std::endl; 
+
+    //std::cout << "inputBlob = " << std::endl << " " << inputBlob << std::endl << std::endl;
+
+
     Mat prob;
     cv::TickMeter t;
     for (int i = 0; i < 10; i++)
