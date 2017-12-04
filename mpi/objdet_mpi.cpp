@@ -17,6 +17,7 @@
 #include <math.h>
 #include <stddef.h>
 #include <map>
+#include <omp.h>
 
 #define send_data_tag 2001
 #define return_data_tag 2002
@@ -70,17 +71,46 @@ static std::vector<String> readClassNames(const char *filename = "synset_words.t
   fp.close();
   return classNames;
 }
+//--------------------------------------------------------------------------
+// Select higher probability of the class Id.
+//--------------------------------------------------------------------------
+//void select_max_class(const std::map<int, prob_t>& in, 
+//                            std::map<int, prob_t>& out ){
+//
+//}
+
+//--------------------------------------------------------------------------
+// Join classifications.
+//--------------------------------------------------------------------------
+void merge_process_classification(const std::vector<prob_t>& in, 
+                                        std::map<int, prob_t>& out ){
+
+  std::vector<prob_t>::const_iterator it = in.begin();
+  for(; it != in.end(); ++it) {
+
+      if( out.find(it->Id) == out.end() ) {
+        // not found
+        out.insert( std::pair<int,prob_t>(it->Id,*it)) ;
+      }
+      else {
+        if( it->Prob > out[it->Id].Prob) {
+          out[it->Id].rect = it->rect;
+          out[it->Id].Prob = it->Prob;
+       }
+  }
+}
+}
 
 //--------------------------------------------------------------------------
 // Makes image classification of Rects received.
 //--------------------------------------------------------------------------
 void rectangle_classification(InputArray im, 
                               const std::vector<Rect> & rects, 
+                              int num_rects,
                               std::string model,
                               std::map<int,prob_t> & res ){
 
   Mat img = im.getMat();
-  int num_rects = rects.size();
 
   // Creates object classifier
   Ptr<DeepNeuralNetworkAlgorithmI> net = createGoogLeNetClassifier();
@@ -90,7 +120,14 @@ void rectangle_classification(InputArray im,
 
   double t0,t1;
 
+  //#pragma omp parallel for default(none) shared(rects,img,res,model,num_rects) private(t0,t1)
   for(int i=0; i<num_rects; i++) {
+//    // Creates object classifier
+//    Ptr<DeepNeuralNetworkAlgorithmI> net = createGoogLeNetClassifier();
+//  
+//    // Load Caffe model
+//    net->LoadModel(model);
+
 
     t0 = get_current_timestamp();
     Mat roi = img(rects[i]);
@@ -118,9 +155,9 @@ void rectangle_classification(InputArray im,
         } 
       }
  
-      std::cout << " Elapsed: " <<  (t1-t0)*1000.0 << ":" << net->ElapsedTimeAsString() 
-                << " classId: " << classId << " clasProb:" 
-                << classProb << " className: " << net->className() << '\n';
+      //std::cout << " Elapsed: " <<  (t1-t0)*1000.0 << ":" << net->ElapsedTimeAsString() 
+      //          << " classId: " << classId << " clasProb:" 
+      //          << classProb << " className: " << net->className() << '\n';
 
     }//End prob less than 25%
   }//End for Rects received
@@ -226,6 +263,7 @@ int main(int argc, char **argv) {
   MPI_Type_struct( 2, blen, displacements, types, &mpi_classification_type );
   MPI_Type_commit(&mpi_classification_type);
 
+
   MPI_Datatype mpi_rect_type;
   int          mrect_len[4]    = {1,1,1,1};
   MPI_Datatype mrect_types[4]  = {MPI_INT, MPI_INT,MPI_INT,MPI_INT};
@@ -250,13 +288,6 @@ int main(int argc, char **argv) {
     //-----------------------------------------------------------------------
     // Send models to child processes.
     //-----------------------------------------------------------------------
-//    int msize = model_path.size();
-//    for (i_proc = 1; i_proc < num_procs; i_proc++) {
-//      ierr = MPI_Send( &msize, 1 , MPI_INT, i_proc, 
-//                     send_data_tag, MPI_COMM_WORLD);
-//      ierr = MPI_Send( model_path.c_str(), msize, MPI_CHAR, i_proc, 
-//                     send_data_tag, MPI_COMM_WORLD);
-//    }
 
     //-------------------------------------------------------------------------
     // OpenCV initialization
@@ -276,7 +307,7 @@ int main(int argc, char **argv) {
     // local variables to process 0
     Mat im;
     int cnt=0;
-    double t1,t2,t3,t10,t11;
+    double t1,t2,t3,t4,t10,t11;
     t1 = get_current_timestamp();
 
     // main loop
@@ -300,19 +331,6 @@ int main(int argc, char **argv) {
       int newWidth = im.cols*newHeight/im.rows;
       resize(im, im, Size(newWidth, newHeight));
 
-      //#ifndef NDEBUG 
-      //Vec3b intensity = im.at<Vec3b>(210,310);
-      //std::cout << "Master process: " << im.size() << " " 
-      //          << "B:" << (int)intensity[0] << " " 
-      //          << "G:" << (int)intensity[1] << " "
-      //          << "R:" << (int)intensity[2] << '\n';
-      //vector<int> compression_params;
-      //compression_params.push_back(CV_IMWRITE_PNG_COMPRESSION);
-      //compression_params.push_back(9);
-      //imwrite("master.png",im,compression_params);
-      //print_mat(im, "Master IMG");
-      //#endif
-
 
       // speed-up using multithreads
       //setUseOptimized(true);
@@ -325,10 +343,6 @@ int main(int argc, char **argv) {
       sizes[1] = newWidth;
       sizes[2]=im.elemSize();
       for (i_proc = 1; i_proc < num_procs; i_proc++) {
-
-        //std::cout << "  Master process:  " << processor_name 
-        //          << " Sending img size " << sizes[0] << "X" << sizes[1] 
-        //          << " to child process " << i_proc << '\n';
 
         ierr = MPI_Send( sizes, 3 , MPI_INT, i_proc, 
                        send_data_tag, MPI_COMM_WORLD);
@@ -350,8 +364,8 @@ int main(int argc, char **argv) {
       vector<Rect> rects;
       ss->process(rects);
 
-      int num_rects = 20 ;
-      //int num_rects = rects.size() ;
+      //int num_rects = 40 ;
+      int num_rects = rects.size() ;
       avg_rects_per_process = num_rects / num_procs;
       std::cout << "  Master process:  " << processor_name
                 << " Number of Region Proposals: " << rects.size() 
@@ -366,7 +380,7 @@ int main(int argc, char **argv) {
         start_row = i_proc      * avg_rects_per_process + 1;
         end_row   = (i_proc + 1)* avg_rects_per_process;
 
-        if ((num_rows - end_row) < avg_rects_per_process)
+        if ((num_rects - end_row) < avg_rects_per_process)
           end_row = num_rects - 1;
         num_rects_to_send = end_row - start_row + 1;
 
@@ -381,26 +395,90 @@ int main(int argc, char **argv) {
         ierr = MPI_Send( &rects[start_row], num_rects_to_send*sizeof(Rect), MPI_BYTE, i_proc, 
                          send_data_tag, MPI_COMM_WORLD);
 
-
-        std::cout << "  Master process:  " << processor_name 
-                  << "  Rect[" << start_row << "] " 
-                  << " x="      << rects[start_row+2].x 
-                  << " y="      << rects[start_row+2].y 
-                  << " width="  << rects[start_row+2].width
-                  << " heigth=" << rects[start_row+2].height << '\n' ;
-
       }//end distribute for 
+
+      //--------------------------------------------------------------------------
+      // Makes image classification of first rectangles.
+      //--------------------------------------------------------------------------
+      //std::map<int,prob_t> m_prob;
+      std::map<int,prob_t> classification_map;
+      double t20,t21;
+      t20 = get_current_timestamp();
+
+      start_row = 0;
+      end_row   = avg_rects_per_process + 1;
+      std::cout << "  Master process:  " << processor_name 
+                << " processing " << end_row
+                << " Rects " << "[" << start_row 
+                << ":" << end_row << "]\n";
+
+      rectangle_classification(im, rects, 
+                               avg_rects_per_process+1, model_path, classification_map);  
+      t21 = get_current_timestamp();
+      MPI_Barrier(MPI_COMM_WORLD);
+      std::cout << "  Master process:  " << processor_name 
+                << " classification elapsed: " <<  (t21-t20)*1000.0 << "\n";
+ 
+      //--------------------------------------------------------------------------
+      // Receives from child process classification results.
+      //--------------------------------------------------------------------------
+
+      // make space for rects num_rows_to_receive
+      //std::map<int,prob_t> classification_map;
+      for (i_proc = 1; i_proc < num_procs; i_proc++) {
+        int partial_size;
+        ierr = MPI_Recv( &partial_size, 1, MPI_INT, i_proc,
+              return_data_tag, MPI_COMM_WORLD, &status);
+        std::vector<prob_t> partial_results;
+        partial_results.resize(partial_size);
+        ierr = MPI_Recv( &partial_results[0], partial_size*sizeof(prob_t), MPI_BYTE, 
+               i_proc, return_data_tag, MPI_COMM_WORLD, &status);
+
+        merge_process_classification(partial_results, classification_map);
+      }
+
+      std::cout << "  Master process:  " << processor_name
+                << " number of rectangles classified: " << classification_map.size()
+                << '\n';
+
+      std::vector<String> class_names = readClassNames();
+      std::map<int,prob_t>::const_iterator m_it = classification_map.begin();
+      for(; m_it != classification_map.end(); ++m_it){
+        std::cout << " Class Id: " << m_it->first  
+                  << " : " << class_names.at(m_it->first) 
+                  << " Prob: " << m_it->second.Prob 
+                  << " Rect: " << m_it->second.rect
+                  << '\n' ;
+        //draw the rect defined by r with line thickness 1 and Blue color
+        if(m_it->first > 0.7){
+          rectangle(im,m_it->second.rect,Scalar(255,0,0),1,8,0);
+          putText(im, std::to_string(m_it->first), 
+                 Point(m_it->second.rect.x,m_it->second.rect.y), 
+                 FONT_HERSHEY_PLAIN, 0.9, Scalar(0,200,200), 1);
+        }
+
+      }
+
+
+      vector<int> compression_params;
+      compression_params.push_back(CV_IMWRITE_PNG_COMPRESSION);
+      compression_params.push_back(9);
+      imwrite("master.png",im, compression_params);
+
+
+
+      t3 = get_current_timestamp();
+      std::cout << "  Master process:  " << processor_name
+                << " Img frame " << cnt
+                << " Time elapsed:" 
+                << (t3-t1)*1000.0 << " " 
+                << (t3-t2)*1000.0 << " ms "  << std::endl;
+
 
       if (cnt >= input_frame->getNFrames())
         break;
 
     }//end main loop
-    t3 = get_current_timestamp();
-    std::cout << "  Master process:  " << processor_name
-              << " Img frame " << cnt
-              << " Time elapsed:" 
-              << (t3-t1)*1000.0 << " " 
-              << (t3-t2)*1000.0 << " ms "  << std::endl;
   }
   else {
     std::cout << "\n"
@@ -410,50 +488,19 @@ int main(int argc, char **argv) {
     //--------------------------------------------------------------------------
     // Receives model path
     //--------------------------------------------------------------------------
-//    int msize;
-//    ierr = MPI_Recv( &msize, 1, MPI_INT,
-//           root_process, send_data_tag, MPI_COMM_WORLD, &status);
-//    char* rec_buf;
-//    rec_buf = (char *) malloc(msize+1);
-//    ierr = MPI_Recv( rec_buf, msize+1, MPI_CHAR,
-//           root_process, send_data_tag, MPI_COMM_WORLD, &status);
-//    std::string model_path(rec_buf);
-//    free(rec_buf);
-//    std::cout << "  Child process: " << procs_id << " "
-//              << processor_name << " model_path: " << model_path << '\n';
     std::string model_path(""); 
+
     //--------------------------------------------------------------------------
     // Receives image from root process.
     //--------------------------------------------------------------------------
     Mat img;
     ierr = MPI_Recv( sizes, 3, MPI_INT,
            root_process, send_data_tag, MPI_COMM_WORLD, &status);
-    //std::cout << "  Child process: " << procs_id << " "
-    //          << processor_name << " Reading image of sizes[0]Xsizes[1] " 
-    //          << sizes[0] << "X"  << sizes[1] << '\n';
 
     img.create(sizes[0],sizes[1],CV_8UC3);
 
     ierr = MPI_Recv( img.data, sizes[0]*sizes[1]*3, MPI_CHAR,
            root_process, send_data_tag, MPI_COMM_WORLD, &status);
-
-    //std::cout << "  Child process: " << procs_id << " "
-    //          << processor_name << " Reading image of " 
-    //          << img.rows << "X" << img.cols << '\n';
-
-    //#ifndef NDEBUG 
-    //Vec3b intensity = img.at<Vec3b>(220,310);
-    //std::cout << "Child process: " << procs_id << " " << img.size() << " "
-    //          << "B:" << (int)intensity[0] << " " 
-    //          << "G:" << (int)intensity[1] << " "
-    //          << "R:" << (int)intensity[2] << '\n';
-    //vector<int> compression_params;
-    //compression_params.push_back(CV_IMWRITE_PNG_COMPRESSION);
-    //compression_params.push_back(9);
-    //imwrite("child.png",img,compression_params);
-    //print_mat(img, "Child IMG");
-    //#endif
-
 
     //--------------------------------------------------------------------------
     // Receives Rects from root process.
@@ -472,58 +519,34 @@ int main(int argc, char **argv) {
               << processor_name << " Received " << num_rects_received 
               << " rectangles to process\n";
 
-    int cnt_rect = 2;
-    std::cout << "  Child process: " << procs_id << " "
-              << processor_name 
-              << "  Rect[0"  << cnt_rect << "] " 
-              << " x="      << rects_child_process[cnt_rect].x 
-              << " y="      << rects_child_process[cnt_rect].y 
-              << " width="  << rects_child_process[cnt_rect].width
-              << " heigth=" << rects_child_process[cnt_rect].height << '\n' ;
-
     //--------------------------------------------------------------------------
     // Makes image classification with received rectangles.
     //--------------------------------------------------------------------------
     std::map<int,prob_t> m_prob;
     double t0,t1;
     t0 = get_current_timestamp();
-    rectangle_classification(img,rects_child_process, model_path, m_prob);  
+    rectangle_classification(img,rects_child_process, 
+                             rects_child_process.size(), model_path, m_prob);  
     t1 = get_current_timestamp();
     std::cout << "  Child process: " << procs_id << " " << processor_name 
               << " Elapsed: " <<  (t1-t0)*1000.0 << "\n";
- 
 
-//    //--------------------------------------------------------------------------
-//    // Makes image classification of Rects received.
-//    //--------------------------------------------------------------------------
-//
-//    // Creates object classifier
-//    Ptr<DeepNeuralNetworkAlgorithmI> net = createGoogLeNetClassifier();
-//    // Load Caffe model
-//    net->LoadModel(model_path);
-//
-//    double t0,t1;
-//    for(int i=0; i<num_rects_received; i++) {
-//      t0 = get_current_timestamp();
-//      Mat roi = img(rects_child_process[i]);
-//
-//      //  image classification using GoogLeNet 
-//      //  trained network from Caffe model zoo.
-//      Mat Prob;
-//      net->Process(roi,Prob);
-//
-//      int classId;
-//      double classProb;
-//      net->GetClassProb(&classId, &classProb);
-//
-//      t1 = get_current_timestamp();
-//      if (classProb > 0.25 ) {
-//        std::cout << "  Child process: " << procs_id << " " << processor_name 
-//                  << " Elapsed: " <<  (t1-t0)*1000.0 << ":" << net->ElapsedTimeAsString() 
-//                  << " classId: " << classId << " clasProb:" 
-//                  << classProb << " className: " << net->className() << '\n';
-//      }//End prob less than 25%
-//    }//End for Rects received
+
+
+    vector <prob_t> v;
+    std::map<int, prob_t>::iterator it = m_prob.begin();
+    for(; it != m_prob.end(); ++it) {
+      v.push_back( it->second);
+    }
+
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    int size_of_prob = v.size();
+    ierr = MPI_Send( &size_of_prob, 1, MPI_INT, root_process,
+               return_data_tag, MPI_COMM_WORLD); 
+    ierr = MPI_Send( &v[0], size_of_prob*sizeof(prob_t), MPI_BYTE, root_process,
+               return_data_tag, MPI_COMM_WORLD); 
+
   }// End child processes
 
 
