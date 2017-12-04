@@ -33,6 +33,9 @@ using namespace cv;
 GoogLeNetClassifier::GoogLeNetClassifier() {
   path_models = "";
   elapsedTime = 0;
+  class_name  = "";
+  class_id    = 0;
+  class_prob  = 0;
 }
 
 void GoogLeNetClassifier::Initialization() {
@@ -43,15 +46,11 @@ std::string GoogLeNetClassifier::PrintParameters()
     std::stringstream str;
     str
     << "# " ;
-
-//    << "Alpha="           << alpha           << " "
-//    << "BackgroundRatio=" << backgroundRatio << " "
-//    << "NoiseSigma="      << noiseSigma      << " "
-//    << "History="         << history         << " "
-//    << "NMixtures="       << nmixtures;
     return str.str();
 
 }
+
+
 
 void GoogLeNetClassifier::LoadModel( std::string src_dir ) {
 
@@ -88,9 +87,13 @@ void GoogLeNetClassifier::Process(InputArray _src, OutputArray _out){
 
   Mat img = _src.getMat();
 
+  _out.create(1,1000,CV_32F);
+  prob = _out.getMat();
+
   //GoogLeNet accepts only 224x224 RGB-images
-  Mat inputBlob = dnn::blobFromImage(img, 1, Size(224, 224),
-                                  Scalar(104, 117, 123));   //Convert Mat to batch of images
+  //Convert Mat to batch of images
+  Mat inputBlob = dnn::blobFromImage(img, 1.0f, Size(224, 224),
+                                  Scalar(104, 117, 123),false);
 
   TickMeter t;
   for (int i = 0; i < 10; i++) {
@@ -98,23 +101,27 @@ void GoogLeNetClassifier::Process(InputArray _src, OutputArray _out){
     //CV_TRACE_REGION("forward");
 
     // Sets the new value for the layer output blob.
-    net.setInput(inputBlob, "data");        //set the network input
+    net.setInput(inputBlob, "data"); 
+
     t.start();
     // Runs forward pass to compute output of layer with name outputName.
-    prob = net.forward("prob");                          //compute output
+    prob = net.forward("prob");
     t.stop();
   }
 
   elapsedTime = (double)t.getTimeMilli() / t.getCounter();
   numberIterations = t.getCounter();
 
-  prob.copyTo(_out);
-
-
 }
+
+
 void GoogLeNetClassifier::GetClassProb(int* classId, double* classProb){
 
   getClassMaxProb(prob, classId, classProb);
+  class_id   = *classId;
+  class_prob = *classProb;
+
+  class_name = classNames.at(class_id);
 
 }
 
@@ -165,6 +172,19 @@ void GoogLeNetClassifier::getClassMaxProb(InputArray blob, int *classId, double 
   *classId = classNumber.x;
 
 }
+
+void GoogLeNetClassifier::print_mat(InputArray im, std::string name) {
+
+  Mat img = im.getMat();
+
+  std::cout << name << ": "
+            << "size:"<< img.size() << " Rows X Cols=[" << img.rows << ":" << img.cols << "] "
+            << " type:" << img.type() << " channels:" << img.channels()
+            << " depth:" << img.depth() << " dims:" << img.dims << std::endl;
+
+}
+
+
 
 Ptr<DeepNeuralNetworkAlgorithmI> createGoogLeNetClassifier() {
     Ptr<DeepNeuralNetworkAlgorithmI> c = makePtr<GoogLeNetClassifier>();

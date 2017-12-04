@@ -25,21 +25,24 @@ class DeepNeuralNetworkAlgorithmI
 public:
   DeepNeuralNetworkAlgorithmI() {}
   virtual ~DeepNeuralNetworkAlgorithmI() {}
-  virtual void SetAlgorithmParameters()       = 0;
+  virtual void SetAlgorithmParameters()         = 0;
   virtual void LoadConfigParameters(std::string)= 0;
-  virtual void SaveConfigParameters()         = 0;
-  virtual void Initialization()               = 0;
-  virtual void GetBackground(OutputArray)     = 0;
-  virtual void GetForeground(OutputArray)     = 0;
-  virtual void Update(InputArray, OutputArray)= 0;
-  virtual void Process(InputArray, OutputArray)= 0;
-  virtual void GetClassProb(int*, double*)= 0;
-  virtual void LoadModel(std::string)         = 0;
-  virtual void SaveModel()                    = 0;
-  virtual std::string PrintParameters()            = 0;
-  virtual const std::string Name()                 = 0;
-  virtual std::string ElapsedTimeAsString()        = 0;
-  virtual double ElapsedTime()                = 0;
+  virtual void SaveConfigParameters()           = 0;
+  virtual void Initialization()                 = 0;
+  virtual void GetBackground(OutputArray)       = 0;
+  virtual void GetForeground(OutputArray)       = 0;
+  virtual void Update(InputArray, OutputArray)  = 0;
+  virtual void Process(InputArray, OutputArray) = 0;
+  virtual void GetClassProb(int*, double*)      = 0;
+  virtual void LoadModel(std::string)           = 0;
+  virtual void SaveModel()                      = 0;
+  virtual std::string PrintParameters()         = 0;
+  virtual const std::string Name()              = 0;
+  virtual std::string ElapsedTimeAsString()     = 0;
+  virtual double ElapsedTime()                  = 0;
+  virtual std::string className()               = 0;
+  virtual int         classId()                 = 0;
+  virtual double      classProbability()        = 0;
 };
 
 #endif

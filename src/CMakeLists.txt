@@ -5,6 +5,7 @@ project(main_object-detection)
 set (main_object-detection_VERSION_MAJOR 1)
 set (main_object-detection_VERSION_MINOR 0)
 
+
 SET( CMAKE_C_FLAGS   "-g -Wall -O3" )
 SET( CMAKE_CXX_FLAGS "-Wall -g -O3" )
 if (CMAKE_CXX_COMPILER_ID MATCHES "Intel")
@@ -15,6 +16,8 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "Intel")
 endif()
 
 
+find_package(MPI REQUIRED)
+include_directories(${MPI_INCLUDE_PATH})
 
 # add the binary tree to the search path for include files
 # so that we will find TutorialConfig.h
@@ -75,6 +78,16 @@ ADD_EXECUTABLE( objdet objdet.cpp )
 #TARGET_LINK_LIBRARIES( objdet ${OpenCV_LIBS} ${Boost_LIBRARIES} imreader )
 TARGET_LINK_LIBRARIES( objdet ${OpenCV_LIBS} imreader googlenet ${Boost_PROGRAM_OPTIONS_LIBRARY} )
 set_property(TARGET objdet PROPERTY RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/../../bin)
+
+#ADD_EXECUTABLE( hello_mpi hello_mpi.cpp )
+#TARGET_LINK_LIBRARIES( hello_mpi ${MPI_LIBRARIES} )
+#if(MPI_COMPILE_FLAGS)
+#  set_target_properties(hello_mpi PROPERTIES COMPILE_FLAGS "${MPI_COMPILE_FLAGS}")
+#endif()
+#if(MPI_LINK_FLAGS)
+#  set_target_properties(hello_mpi PROPERTIES LINK_FLAGS "${MPI_LINK_FLAGS}")
+#endif()
+#set_property(TARGET hello_mpi PROPERTY RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/../../bin)
 
 
 INSTALL(

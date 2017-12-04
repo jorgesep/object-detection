@@ -53,6 +53,9 @@ public:
     std::string PrintParameters();
     const std::string Name() {return std::string("GoogLeNetClassifier"); };
     std::string ElapsedTimeAsString();
+    std::string className() {return class_name;};
+    int         classId()   {return class_id;};
+    double      classProbability(){return class_prob;};
     double ElapsedTime() {return elapsedTime; } ;
     long Iterations() {return numberIterations;} ;
 
@@ -60,6 +63,7 @@ private:
 
     void readClassNames();
     void getClassMaxProb(InputArray, int*, double*);
+    void print_mat(InputArray, std::string);
  
     double duration;
 
@@ -74,6 +78,10 @@ private:
 
     double elapsedTime;
     long numberIterations;
+
+    std::string class_name ;
+    int class_id;
+    double class_prob;
 
 };
 

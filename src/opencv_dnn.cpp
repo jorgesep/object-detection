@@ -9,12 +9,31 @@ using namespace cv::dnn;
 #include <cstdlib>
 using namespace std;
 
+void print_mat(InputArray im, std::string name) {
+  
+  Mat img = im.getMat();
+
+  std::cout << name << ": "  
+            << "size:"<< img.size() << " Rows X Cols=[" << img.rows << ":" << img.cols << "] " 
+            << " type:" << img.type() << " channels:" << img.channels() 
+            << " depth:" << img.depth() << " dims:" << img.dims << std::endl; 
+ 
+}
+
 /* Find best class for the blob (i. e. class with maximal probability) */
 static void getMaxClass(const Mat &probBlob, int *classId, double *classProb)
 {
+    print_mat(probBlob, "probBlob");
+
     Mat probMat = probBlob.reshape(1, 1); //reshape the blob to 1x1000 matrix
+    print_mat(probBlob, "probBlob");
+
     Point classNumber;
     minMaxLoc(probMat, NULL, classProb, NULL, &classNumber);
+
+    std::cout << "Class prob:" << *classProb << " Point: " 
+              << classNumber.x << ":" << classNumber.y << std::endl ;
+
     *classId = classNumber.x;
 }
 
@@ -75,14 +94,23 @@ int main(int argc, char **argv)
     Mat inputBlob = blobFromImage(img, 1.0f, Size(224, 224),
                                   Scalar(104, 117, 123), false);   //Convert Mat to batch of images
 
-    std::cout << "Img size       :"<< img.size() << " RowsxCols=[" << img.rows << ":" << img.cols << "] " 
-              << " type:" << img.type() << " channels:" << img.channels() 
-              << " depth:" << img.depth() << " dims:" << img.dims << std::endl; 
+    print_mat(img, "img");
     std::cout << "Input blob size:"<< inputBlob.size()<< " RowsxCols=[" << inputBlob.rows << ":" << inputBlob.cols << "] " 
               << " type:" << inputBlob.type() << " channels:" << inputBlob.channels() 
               << " depth:" << inputBlob.depth() << " dims:" << inputBlob.dims << std::endl; 
 
     //std::cout << "inputBlob = " << std::endl << " " << inputBlob << std::endl << std::endl;
+    
+    
+
+    std::cout << "inputBlob.dims = " << inputBlob.dims << " inputBlob.size = [";
+for(int i = 0; i < inputBlob.dims; ++i) {
+    if(i) std::cout << " X ";
+    std::cout << inputBlob.size[i];
+}
+std::cout << "] inputBlob.channels = " << inputBlob.channels() << std::endl;
+
+
 
 
     Mat prob;
@@ -95,6 +123,10 @@ int main(int argc, char **argv)
         prob = net.forward("prob");                          //compute output
         t.stop();
     }
+
+    print_mat(prob, "prob");
+ 
+
     int classId;
     double classProb;
     getMaxClass(prob, &classId, &classProb);//find the best class

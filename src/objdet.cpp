@@ -8,6 +8,7 @@
 #include <boost/program_options.hpp>
 #include "opencv2/ximgproc/segmentation.hpp"
 #include <sys/time.h>
+#include <mpi.h>
 #include "imgreader.h"
 #include "googlenet.h"
 #include "dnn_algorithmI.h"
@@ -25,6 +26,18 @@ double get_current_timestamp()
   gettimeofday(&curt, NULL);
   return (double)curt.tv_sec + ((double)curt.tv_usec)/1000000.0;
 }
+
+void print_mat(InputArray im, std::string name) {
+
+  Mat img = im.getMat();
+
+  std::cout << name << "= "
+            << "size(width x height):"<< img.size() << " Rows X Cols=[" << img.rows << ":" << img.cols << "] "
+            << " type:" << img.type() << " channels:" << img.channels()
+            << " depth:" << img.depth() << " dims:" << img.dims << std::endl;
+
+}
+
 
 void display_usage()
 {
@@ -127,9 +140,9 @@ int main(int argc, char **argv) {
   po::options_description desc("Image Object Detection. v1.0.0");
   desc.add_options()
     ("help,h", "Display this help message")
-    ("input-files", po::value< std::vector<std::string> >(), "Input files")
     ("show,s","Show image window")
     ("path,p","Path to ddn models")
+    ("input-files", po::value< std::vector<std::string> >(), "Input files")
     ("version,v", "Display the version number");
 
   po::positional_options_description p;
@@ -155,10 +168,12 @@ int main(int argc, char **argv) {
 #endif
   }
 
-  string model_path("");
+  std::string model_path("");
   if( vm.count("path") ){
-    model_path = vm["compression"].as<string>();
+    model_path = vm["path"].as<string>();
+    std::cout << "Model Path: " << model_path << std::endl; 
   }
+    std::cout << "Model Path1: " << model_path << std::endl; 
 
   // Create Windows
   bool show_window = false;
@@ -193,7 +208,7 @@ int main(int argc, char **argv) {
 
   Mat im;
   int cnt=0;
-  double t1,t2,t3;
+  double t1,t2,t3,t10,t11;
   t1 = get_current_timestamp();
 
   // main loop
@@ -208,7 +223,7 @@ int main(int argc, char **argv) {
     if (im.empty()) break;
 
     // resize image
-    int newHeight = 200;
+    int newHeight = 224;
     int newWidth = im.cols*newHeight/im.rows;
     resize(im, im, Size(newWidth, newHeight));
 
@@ -223,95 +238,58 @@ int main(int argc, char **argv) {
     ss->setBaseImage(im);
 
     // high recall but slow Selective Search method
-    ss->switchToSelectiveSearchQuality();
+    //ss->switchToSelectiveSearchQuality();
+    ss->switchToSelectiveSearchFast();
 
     // run selective search segmentation on input image
     vector<Rect> rects;
     ss->process(rects);
 
-    //  image classification using GoogLeNet trained network from Caffe model zoo.
-    Mat Prob;
-    net->Process(im,Prob);
+    cout  << " Number of Region Proposals: " << rects.size() << endl;
+    for(int i=0; i<150; i++) {
 
-    int classId;
-    double classProb;
-    net->GetClassProb(&classId, &classProb);
+      t10 = get_current_timestamp();
 
+      Mat roi = im(rects[i]);
+
+      //  image classification using GoogLeNet trained network from Caffe model zoo.
+      Mat Prob;
+      //net->Process(im,Prob);
+      net->Process(roi,Prob);
+
+      int classId;
+      double classProb;
+      net->GetClassProb(&classId, &classProb);
+
+      t11 = get_current_timestamp();
+
+      if (classProb > 0.25 ) {
+      cout << i << " Elapsed: " <<  (t11-t10)*1000.0 << ":" << net->ElapsedTimeAsString() 
+           << " classId: " << classId << " clasProb:" 
+           << classProb << " className: " << net->className() << endl;
+      }
+    }
     t3 = get_current_timestamp();
+    //cout << cnt  
+    //     << " Time elapsed:" << (t3-t1)*1000.0 << " " << (t3-t2)*1000.0 << " ms " 
+    //     << " Number of Region Proposals: " << rects.size() 
+    //     << " classId: " << classId << " classProb: " << classProb 
+    //     <<  " className: " << net->className() <<endl;
+
     cout << cnt  
-         << " Time elapsed:" << (t3-t1)*1000.0 << " " << (t3-t2)*1000.0 << " ms " 
-         << " Number of Region Proposals: " << rects.size() 
-         << " classId: " << classId << " classProb: " << classProb << endl;
+         << " Time elapsed:" << (t3-t1)*1000.0 << " " << (t3-t2)*1000.0 << " ms "  << endl;
 
 
     // display gui with images
-    if (show_window) 
-      image_show(im, rects);
+    //if (show_window) 
+    //  image_show(im, rects);
 
-    //if (cnt >= input_frame->getNFrames())
-    //  break;
+    if (cnt >= input_frame->getNFrames())
+      break;
 
  
  }
 
-
-  // if (inputName.empty()) {
-  //   cmd.printMessage();
-  //   return -1;
-  // }
-
-  //cout << "Input1 : " << inputName << endl;
-  
-  //cout << "Path: " << inputPath << endl;
-  //cout << "Input:" << img << "|" << endl;
-
-
-    // CV_TRACE_FUNCTION();
-    // String modelTxt = "/home/courses/student48/project/dataset/dnn/bvlc_googlenet.prototxt";
-    // String modelBin = "/home/courses/student48/project/dataset/dnn/bvlc_googlenet.caffemodel";
-    // String imageFile = (argc > 1) ? argv[1] : "/home/courses/student48/project/dataset/dnn/space_shuttle.jpg";
-    // Net net;
-    // try {
-    //     net = dnn::readNetFromCaffe(modelTxt, modelBin);
-    // }
-    // catch (cv::Exception& e) {
-    //     std::cerr << "Exception: " << e.what() << std::endl;
-    //     if (net.empty())
-    //     {
-    //         std::cerr << "Can't load network by using the following files: " << std::endl;
-    //         std::cerr << "prototxt:   " << modelTxt << std::endl;
-    //         std::cerr << "caffemodel: " << modelBin << std::endl;
-    //         std::cerr << "bvlc_googlenet.caffemodel can be downloaded here:" << std::endl;
-    //         std::cerr << "http://dl.caffe.berkeleyvision.org/bvlc_googlenet.caffemodel" << std::endl;
-    //         exit(-1);
-    //     }
-    // }
-    // Mat img = imread(imageFile);
-    // if (img.empty())
-    // {
-    //     std::cerr << "Can't read image from the file: " << imageFile << std::endl;
-    //     exit(-1);
-    // }
-    // //GoogLeNet accepts only 224x224 BGR-images
-    // Mat inputBlob = blobFromImage(img, 1.0f, Size(224, 224),
-    //                               Scalar(104, 117, 123), false);   //Convert Mat to batch of images
-    // Mat prob;
-    // cv::TickMeter t;
-    // for (int i = 0; i < 10; i++)
-    // {
-    //     CV_TRACE_REGION("forward");
-    //     net.setInput(inputBlob, "data");        //set the network input
-    //     t.start();
-    //     prob = net.forward("prob");                          //compute output
-    //     t.stop();
-    // }
-    // int classId;
-    // double classProb;
-    // getMaxClass(prob, &classId, &classProb);//find the best class
-    // std::vector<String> classNames = readClassNames();
-    // std::cout << "Best class: #" << classId << " '" << classNames.at(classId) << "'" << std::endl;
-    // std::cout << "Probability: " << classProb * 100 << "%" << std::endl;
-    // std::cout << "Time: " << (double)t.getTimeMilli() / t.getCounter() << " ms (average from " << t.getCounter() << " iterations)" << std::endl;
   return 0;
 } //main
 

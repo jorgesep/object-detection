@@ -62,10 +62,12 @@ int main(int argc, char** argv) {
     std::cout << "Total Number of Region Proposals: " << rects.size() << std::endl;
  
     // number of region proposals to show
-    int numShowRects = 100;
+    //int numShowRects = 100;
+    int numShowRects = 10;
     // increment to increase/decrease total number
     // of reason proposals to be shown
-    int increment = 50;
+    //int increment = 50;
+    int increment = 1;
 
 
 
