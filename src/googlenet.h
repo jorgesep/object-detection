@@ -54,8 +54,10 @@ public:
     const std::string Name() {return std::string("GoogLeNetClassifier"); };
     std::string ElapsedTimeAsString();
     std::string className() {return class_name;};
+    std::string className(int);
     int         classId()   {return class_id;};
     double      classProbability(){return class_prob;};
+    double      classProbability(int);
     double ElapsedTime() {return elapsedTime; } ;
     long Iterations() {return numberIterations;} ;
 

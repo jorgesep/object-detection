@@ -184,6 +184,21 @@ void GoogLeNetClassifier::print_mat(InputArray im, std::string name) {
 
 }
 
+double GoogLeNetClassifier::
+classProbability(int class_id){
+  
+  //std::cout << "1:" << prob.at<double>(0,class_id) << " ";
+  //std::cout << "2:" << prob.at<double>(class_id,0) << " ";
+  //std::cout << "3:" << prob.at<double>(class_id) << "\n";
+  //print_mat(prob, "prob"); 
+
+  return prob.at<double>(0,class_id);
+}
+std::string GoogLeNetClassifier::
+className(int class_id){
+  return classNames.at(class_id);
+}
+
 
 
 Ptr<DeepNeuralNetworkAlgorithmI> createGoogLeNetClassifier() {
