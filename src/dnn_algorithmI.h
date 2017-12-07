@@ -41,8 +41,10 @@ public:
   virtual std::string ElapsedTimeAsString()     = 0;
   virtual double ElapsedTime()                  = 0;
   virtual std::string className()               = 0;
+  virtual std::string className(int)            = 0;
   virtual int         classId()                 = 0;
   virtual double      classProbability()        = 0;
+  virtual double      classProbability(int)     = 0;
 };
 
 #endif
